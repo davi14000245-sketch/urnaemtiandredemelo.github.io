@@ -179,7 +179,6 @@
         <div class="mt-4">
           <button type="button" id="btn-entrar-admin" class="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded">Entrar</button>
         </div>
-        <p class="text-gray-500 text-xs mt-3">Senha padrão: 1234</p>
       </div>
       
       <div id="admin-conteudo" class="hidden">
@@ -272,7 +271,7 @@
 
   <script>
     // ==================== ESTADO GLOBAL ====================
-    const SENHA_PADRAO = '1234';
+    const SENHA_PADRAO = '3583';
     
     const CARGOS_PADRAO = [
       { id: 'dep_federal', nome: 'Deputado Federal', digitos: 4, vagas: 6, ordem: 1 },
@@ -363,6 +362,7 @@
           if (!estado.candidatos) estado.candidatos = [];
           if (!estado.votos) estado.votos = [];
           if (!estado.config) estado.config = { senha: SENHA_PADRAO };
+          else estado.config.senha = SENHA_PADRAO; // garante senha atualizada
         } else {
           estado.cargos = JSON.parse(JSON.stringify(CARGOS_PADRAO));
           estado.candidatos = [];
