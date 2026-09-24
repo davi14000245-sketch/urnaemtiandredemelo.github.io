@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Urna Eletrônica - Simulador</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+    
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: #1a1a1a;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    
+    .crt-screen {
+      background: linear-gradient(180deg, #2d2d2d 0%, #1a1a1a 100%);
+      box-shadow: 
+        inset 0 0 60px rgba(0,0,0,0.8),
+        0 0 20px rgba(0,255,0,0.1);
+      border: 8px solid #333;
+      border-radius: 12px;
+      position: relative;
+    }
+    
+    .crt-screen::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.15),
+        rgba(0,0,0,0.15) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+      pointer-events: none;
+      border-radius: 4px;
+      z-index: 1;
+    }
+    
+    .crt-content {
+      position: relative;
+      z-index: 2;
+    }
+    
+    .green-display {
+      background: #0a1f0a;
+      color: #33ff33;
+      text-shadow: 0 0 8px #33ff33;
+      border: 2px solid #1a4d1a;
+      font-family: 'Share Tech Mono', monospace;
+    }
+    
+    .key-btn {
+      background: linear-gradient(180deg, #e8e8e8 0%, #c0c0c0 100%);
+      border: 2px solid #888;
+      border-radius: 6px;
+      box-shadow: 0 3px 0 #666, 0 4px 6px rgba(0,0,0,0.3);
+      transition: all 0.08s;
+      user-select: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    
+    .key-btn:active, .key-btn.pressed {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #666;
+    }
+    
+    .key-branco { background: linear-gradient(180deg, #fff 0%, #ddd 100%); }
+    .key-corrige { background: linear-gradient(180deg, #ffcc00 0%, #e6b800 100%); }
+    .key-confirma { background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%); color: white; }
+    
+    .photo-candidate {
+      width: 120px;
+      height: 150px;
+      object-fit: cover;
+      border: 3px solid #33ff33;
+      background: #111;
+    }
+    
+    .blink {
+      animation: blink 0.8s infinite;
+    }
+    
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.3; }
+    }
+    
+    .modal-overlay {
+      background: rgba(0,0,0,0.85);
+    }
+    
+    .admin-panel {
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #222; }
+    ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4 min-h-screen">
+  
+  <!-- Tela Principal da Urna -->
+  <div id="urna-container" class="w-full max-w-4xl">
+    <div class="crt-screen p-6 relative">
+      <div class="crt-content">
+        <!-- Cabeçalho -->
+        <div class="flex justify-between items-center mb-4 text-green-400 text-sm">
+          <span>JUSTIÇA ELEITORAL</span>
+          <span id="cargo-atual-label">—</span>
+          <span id="clock"></span>
+        </div>
+        
+        <!-- Display Principal -->
+        <div id="display-area" class="green-display p-6 min-h-[320px] rounded mb-6 relative">
+          <div id="tela-voto" class="h-full">
+            <!-- Conteúdo dinâmico -->
+          </div>
+        </div>
+        
+        <!-- Teclado -->
+        <div class="grid grid-cols-4 gap-3 max-w-md mx-auto">
+          <button type="button" class="key-btn h-14 text-2xl font-bold" data-key="1">1</button>
+          <button type="button" class="key-btn h-14 text-2xl font-bold" data-key="2">2</button>
+          <button type="button" class="key-btn h-14 text-2xl font-bold" data-key="3">3</button>
+          <button type="button" class="key-btn h-14 text-2xl font-bold key-branco" data-key="BRANCO">BRANCO</button>
+          
+          <button type="button" class="key-btn h-14 text-2xl font-bold" data-key="4">4</button>
+          <button type="button" class="key-btn h-14 text-2xl font-bold" data-key="5">5</button>
+          <button type="button" class="key-btn h-14 text-2xl font-bold" data-key="6">6</button>
+          <button type="button" class="key-btn h-14 text-2xl font-bold key-corrige" data-key="CORRIGE">CORRIGE</button>
+          
+          <button type="button" class="key-btn h-14 text-2xl font-bold" data-key="7">7</button>
+          <button type="button" class="key-btn h-14 text-2xl font-bold" data-key="8">8</button>
+          <button type="button" class="key-btn h-14 text-2xl font-bold" data-key="9">9</button>
+          <button type="button" class="key-btn h-14 text-2xl font-bold key-confirma" data-key="CONFIRMA">CONFIRMA</button>
+          
+          <button type="button" class="key-btn h-14 text-2xl font-bold col-start-2" data-key="0">0</button>
+        </div>
+        
+        <div class="mt-4 text-center text-gray-500 text-xs">
+          Simulador Educacional • Não possui valor oficial
+        </div>
+      </div>
+    </div>
+    
+    <!-- Botões de Acesso -->
+    <div class="flex flex-wrap gap-3 justify-center mt-4">
+      <button type="button" id="btn-admin" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm">
+        ⚙ Administração
+      </button>
+      <button type="button" id="btn-resultados" class="px-4 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded text-sm">
+        📊 Resultados / Apuração
+      </button>
+      <button type="button" id="btn-zeresima" class="px-4 py-2 bg-yellow-700 hover:bg-yellow-600 text-white rounded text-sm">
+        📄 Zerésima
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal Administração -->
+  <div id="modal-admin" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 border border-gray-600 rounded-xl p-6 w-full max-w-4xl admin-panel">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl text-green-400 font-bold">Painel Administrativo</h2>
+        <button type="button" id="btn-fechar-admin" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+      </div>
+      
+      <div id="admin-login" class="text-center py-8">
+        <p class="text-gray-300 mb-4">Digite a senha de administrador:</p>
+        <input type="password" id="senha-admin" class="bg-gray-800 border border-gray-600 text-white px-4 py-2 rounded text-center text-xl tracking-widest" maxlength="8" placeholder="••••">
+        <div class="mt-4">
+          <button type="button" id="btn-entrar-admin" class="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded">Entrar</button>
+        </div>
+        <p class="text-gray-500 text-xs mt-3">Senha padrão: 1234</p>
+      </div>
+      
+      <div id="admin-conteudo" class="hidden">
+        <div class="flex gap-2 mb-6 border-b border-gray-700 pb-2">
+          <button type="button" id="tab-cargos" class="px-4 py-2 rounded bg-green-800 text-white text-sm">Cargos</button>
+          <button type="button" id="tab-candidatos" class="px-4 py-2 rounded bg-gray-700 text-white text-sm">Candidatos</button>
+          <button type="button" id="tab-config" class="px-4 py-2 rounded bg-gray-700 text-white text-sm">Configurações</button>
+        </div>
+        
+        <!-- Aba Cargos -->
+        <div id="aba-cargos">
+          <h3 class="text-green-400 mb-3">Gerenciador de Cargos</h3>
+          <div id="lista-cargos" class="space-y-3"></div>
+          <button type="button" id="btn-add-cargo" class="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm">+ Novo Cargo</button>
+        </div>
+        
+        <!-- Aba Candidatos -->
+        <div id="aba-candidatos" class="hidden">
+          <h3 class="text-green-400 mb-3">Gerenciador de Candidatos</h3>
+          <div class="bg-gray-800 p-4 rounded mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="text-gray-400 text-xs">Nome</label>
+                <input id="cand-nome" class="w-full bg-gray-700 border border-gray-600 text-white px-3 py-2 rounded" placeholder="Nome completo">
+              </div>
+              <div>
+                <label class="text-gray-400 text-xs">Número</label>
+                <input id="cand-numero" class="w-full bg-gray-700 border border-gray-600 text-white px-3 py-2 rounded" placeholder="Ex: 1234">
+              </div>
+              <div>
+                <label class="text-gray-400 text-xs">Partido / Chapa / Turma</label>
+                <input id="cand-partido" class="w-full bg-gray-700 border border-gray-600 text-white px-3 py-2 rounded" placeholder="Ex: Partido X">
+              </div>
+              <div>
+                <label class="text-gray-400 text-xs">Cargo</label>
+                <select id="cand-cargo" class="w-full bg-gray-700 border border-gray-600 text-white px-3 py-2 rounded"></select>
+              </div>
+              <div class="md:col-span-2">
+                <label class="text-gray-400 text-xs">Foto (URL ou Upload)</label>
+                <div class="flex gap-2 flex-wrap">
+                  <input id="cand-foto-url" class="flex-1 min-w-[200px] bg-gray-700 border border-gray-600 text-white px-3 py-2 rounded" placeholder="https://... ou deixe vazio">
+                  <input type="file" id="cand-foto-file" accept="image/*" class="text-sm text-gray-400">
+                </div>
+              </div>
+              <div class="md:col-span-2">
+                <label class="text-gray-400 text-xs">Vice / Suplente (opcional)</label>
+                <input id="cand-vice" class="w-full bg-gray-700 border border-gray-600 text-white px-3 py-2 rounded" placeholder="Nome do vice/suplente">
+              </div>
+            </div>
+            <button type="button" id="btn-salvar-candidato" class="mt-3 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded text-sm">Salvar Candidato</button>
+          </div>
+          <div id="lista-candidatos" class="space-y-2 max-h-64 overflow-y-auto"></div>
+        </div>
+        
+        <!-- Aba Config -->
+        <div id="aba-config" class="hidden">
+          <h3 class="text-green-400 mb-3">Configurações</h3>
+          <div class="space-y-3">
+            <button type="button" id="btn-export-json" class="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-sm text-left">📥 Exportar Resultados (JSON)</button>
+            <button type="button" id="btn-export-csv" class="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-sm text-left">📥 Exportar Resultados (CSV)</button>
+            <button type="button" id="btn-limpar-votos" class="w-full px-4 py-2 bg-yellow-700 hover:bg-yellow-600 text-white rounded text-sm text-left">🗑 Limpar Votos (Zerésima) — mantém candidatos</button>
+            <button type="button" id="btn-reset-total" class="w-full px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded text-sm text-left">⚠ Reset Completo (apaga tudo)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Resultados -->
+  <div id="modal-resultados" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-gray-900 border border-gray-600 rounded-xl p-6 w-full max-w-4xl admin-panel">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl text-green-400 font-bold">Apuração em Tempo Real</h2>
+        <button type="button" id="btn-fechar-resultados" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+      </div>
+      <div id="conteudo-resultados" class="space-y-6"></div>
+    </div>
+  </div>
+
+  <!-- Modal Zerésima -->
+  <div id="modal-zeresima" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white text-black rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto font-mono text-sm">
+      <div id="conteudo-zeresima"></div>
+      <div class="mt-4 flex gap-2 justify-end">
+        <button type="button" id="btn-imprimir-zeresima" class="px-4 py-2 bg-gray-200 rounded">Imprimir</button>
+        <button type="button" id="btn-fechar-zeresima" class="px-4 py-2 bg-gray-700 text-white rounded">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== ESTADO GLOBAL ====================
+    const SENHA_PADRAO = '1234';
+    
+    const CARGOS_PADRAO = [
+      { id: 'dep_federal', nome: 'Deputado Federal', digitos: 4, vagas: 6, ordem: 1 },
+      { id: 'dep_estadual', nome: 'Deputado Estadual', digitos: 5, vagas: 12, ordem: 2 },
+      { id: 'senador', nome: 'Senador', digitos: 3, vagas: 2, ordem: 3 },
+      { id: 'governador', nome: 'Governador', digitos: 2, vagas: 1, ordem: 4 },
+      { id: 'presidente', nome: 'Presidente', digitos: 2, vagas: 1, ordem: 5 },
+      { id: 'vereador', nome: 'Vereador', digitos: 5, vagas: 18, ordem: 6 }
+    ];
+    
+    let estado = {
+      cargos: [],
+      candidatos: [],
+      votos: [],
+      config: { senha: SENHA_PADRAO }
+    };
+    
+    let sessao = {
+      cargoIndex: 0,
+      digitosDigitados: '',
+      votosSessao: [],
+      branco: false,
+      nulo: false,
+      finalizado: false,
+      senadorVoto: 0
+    };
+    
+    // ==================== ÁUDIO ====================
+    let audioCtx = null;
+    
+    function initAudio() {
+      if (!audioCtx) {
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+          console.warn('Audio não disponível', e);
+        }
+      }
+    }
+    
+    function tocarClique() {
+      try {
+        initAudio();
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.value = 800;
+        osc.type = 'square';
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.08);
+      } catch (e) {}
+    }
+    
+    function tocarPilili() {
+      try {
+        initAudio();
+        if (!audioCtx) return;
+        const notas = [523.25, 659.25, 783.99, 1046.50];
+        notas.forEach((freq, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.frequency.value = freq;
+          osc.type = 'sine';
+          const t = audioCtx.currentTime + i * 0.12;
+          gain.gain.setValueAtTime(0.2, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+          osc.start(t);
+          osc.stop(t + 0.25);
+        });
+      } catch (e) {}
+    }
+    
+    // ==================== PERSISTÊNCIA ====================
+    function carregarEstado() {
+      try {
+        const raw = localStorage.getItem('urna_eletronica_v1');
+        if (raw) {
+          estado = JSON.parse(raw);
+          if (!estado.cargos || estado.cargos.length === 0) {
+            estado.cargos = JSON.parse(JSON.stringify(CARGOS_PADRAO));
+          }
+          if (!estado.candidatos) estado.candidatos = [];
+          if (!estado.votos) estado.votos = [];
+          if (!estado.config) estado.config = { senha: SENHA_PADRAO };
+        } else {
+          estado.cargos = JSON.parse(JSON.stringify(CARGOS_PADRAO));
+          estado.candidatos = [];
+          estado.votos = [];
+          estado.config = { senha: SENHA_PADRAO };
+          salvarEstado();
+        }
+      } catch (e) {
+        console.error('Erro ao carregar estado', e);
+        estado.cargos = JSON.parse(JSON.stringify(CARGOS_PADRAO));
+        estado.candidatos = [];
+        estado.votos = [];
+        estado.config = { senha: SENHA_PADRAO };
+      }
+    }
+    
+    function salvarEstado() {
+      try {
+        localStorage.setItem('urna_eletronica_v1', JSON.stringify(estado));
+      } catch (e) {
+        console.error('Erro ao salvar estado', e);
+      }
+    }
+    
+    // ==================== UTILITÁRIOS ====================
+    function cargosOrdenados() {
+      return [...estado.cargos].sort((a, b) => a.ordem - b.ordem);
+    }
+    
+    function cargoAtual() {
+      const cargos = cargosOrdenados();
+      return cargos[sessao.cargoIndex] || null;
+    }
+    
+    function buscarCandidato(numero, cargoId) {
+      return estado.candidatos.find(c => 
+        String(c.numero) === String(numero) && c.cargoId === cargoId
+      );
+    }
+    
+    function gerarId() {
+      return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    }
+    
+    // ==================== INTERFACE DE VOTO ====================
+    function iniciarNovaSessao() {
+      sessao = {
+        cargoIndex: 0,
+        digitosDigitados: '',
+        votosSessao: [],
+        branco: false,
+        nulo: false,
+        finalizado: false,
+        senadorVoto: 0
+      };
+      renderizarTelaVoto();
+    }
+    
+    function renderizarTelaVoto() {
+      const area = document.getElementById('tela-voto');
+      const cargo = cargoAtual();
+      const label = document.getElementById('cargo-atual-label');
+      
+      if (!area || !label) return;
+      
+      if (sessao.finalizado) {
+        label.textContent = 'FIM';
+        area.innerHTML = `
+          <div class="flex flex-col items-center justify-center h-64">
+            <div class="text-6xl font-bold blink text-green-400">FIM</div>
+            <p class="mt-6 text-green-300 text-lg">Voto registrado com sucesso</p>
+            <p class="mt-2 text-green-600 text-sm">Aguardando próximo eleitor...</p>
+          </div>
+        `;
+        setTimeout(() => iniciarNovaSessao(), 3500);
+        return;
+      }
+      
+      if (!cargo) {
+        area.innerHTML = '<p class="text-center text-red-400">Nenhum cargo configurado</p>';
+        return;
+      }
+      
+      let tituloCargo = cargo.nome;
+      if (cargo.id === 'senador') {
+        tituloCargo += ` (${sessao.senadorVoto + 1}º voto)`;
+      }
+      label.textContent = tituloCargo.toUpperCase();
+      
+      const digitos = cargo.digitos;
+      let displayNumeros = '';
+      for (let i = 0; i < digitos; i++) {
+        const d = sessao.digitosDigitados[i] || '';
+        displayNumeros += `<span class="inline-block w-10 h-12 border-b-2 border-green-500 mx-1 text-center text-3xl leading-10">${d}</span>`;
+      }
+      
+      let infoCandidato = '';
+      if (sessao.branco) {
+        infoCandidato = `
+          <div class="mt-8 text-center">
+            <p class="text-3xl text-yellow-300">VOTO EM BRANCO</p>
+          </div>
+        `;
+      } else if (sessao.digitosDigitados.length === digitos) {
+        const cand = buscarCandidato(sessao.digitosDigitados, cargo.id);
+        if (cand) {
+          const foto = cand.foto || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="150"><rect fill="%23333" width="120" height="150"/><text x="60" y="80" fill="%23666" text-anchor="middle" font-size="14">SEM FOTO</text></svg>';
+          infoCandidato = `
+            <div class="mt-6 flex gap-6 items-start flex-wrap">
+              <img src="${foto}" class="photo-candidate" alt="Foto" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22150%22><rect fill=%22%23333%22 width=%22120%22 height=%22150%22/><text x=%2260%22 y=%2280%22 fill=%22%23666%22 text-anchor=%22middle%22 font-size=%2214%22>SEM FOTO</text></svg>'">
+              <div>
+                <p class="text-xl text-green-300">${cand.nome}</p>
+                <p class="text-green-500 mt-1">${cand.partido || ''}</p>
+                ${cand.vice ? `<p class="text-green-600 mt-2 text-sm">Vice/Suplente: ${cand.vice}</p>` : ''}
+              </div>
+            </div>
+          `;
+        } else {
+          infoCandidato = `
+            <div class="mt-8 text-center">
+              <p class="text-3xl text-red-400">NÚMERO ERRADO</p>
+              <p class="text-green-600 mt-2">Voto NULO se confirmar</p>
+            </div>
+          `;
+          sessao.nulo = true;
+        }
+      } else {
+        sessao.nulo = false;
+      }
+      
+      area.innerHTML = `
+        <div>
+          <p class="text-green-500 text-sm mb-2">SEU VOTO PARA</p>
+          <p class="text-2xl text-green-300 mb-6">${tituloCargo.toUpperCase()}</p>
+          <div class="flex justify-center mb-2">${displayNumeros}</div>
+          ${infoCandidato}
+        </div>
+      `;
+    }
+    
+    function processarTecla(tecla) {
+      if (sessao.finalizado) return;
+      
+      tocarClique();
+      
+      const cargo = cargoAtual();
+      if (!cargo) return;
+      
+      if (tecla === 'BRANCO') {
+        if (sessao.digitosDigitados.length === 0) {
+          sessao.branco = true;
+          sessao.nulo = false;
+          renderizarTelaVoto();
+        }
+        return;
+      }
+      
+      if (tecla === 'CORRIGE') {
+        sessao.digitosDigitados = '';
+        sessao.branco = false;
+        sessao.nulo = false;
+        renderizarTelaVoto();
+        return;
+      }
+      
+      if (tecla === 'CONFIRMA') {
+        confirmarVoto();
+        return;
+      }
+      
+      if (/^[0-9]$/.test(tecla) && !sessao.branco) {
+        if (sessao.digitosDigitados.length < cargo.digitos) {
+          sessao.digitosDigitados += tecla;
+          renderizarTelaVoto();
+        }
+      }
+    }
+    
+    function confirmarVoto() {
+      const cargo = cargoAtual();
+      if (!cargo) return;
+      
+      let voto = {
+        cargoId: cargo.id,
+        cargoNome: cargo.nome,
+        timestamp: new Date().toISOString()
+      };
+      
+      if (sessao.branco) {
+        voto.tipo = 'branco';
+        voto.numero = null;
+      } else if (sessao.digitosDigitados.length === cargo.digitos) {
+        const cand = buscarCandidato(sessao.digitosDigitados, cargo.id);
+        if (cand) {
+          voto.tipo = 'valido';
+          voto.numero = sessao.digitosDigitados;
+          voto.candidatoId = cand.id;
+          voto.candidatoNome = cand.nome;
+        } else {
+          voto.tipo = 'nulo';
+          voto.numero = sessao.digitosDigitados;
+        }
+      } else {
+        return;
+      }
+      
+      if (cargo.id === 'senador') {
+        sessao.votosSessao.push(voto);
+        if (sessao.senadorVoto === 0) {
+          sessao.senadorVoto = 1;
+          sessao.digitosDigitados = '';
+          sessao.branco = false;
+          sessao.nulo = false;
+          renderizarTelaVoto();
+          return;
+        }
+      } else {
+        sessao.votosSessao.push(voto);
+      }
+      
+      sessao.cargoIndex++;
+      sessao.digitosDigitados = '';
+      sessao.branco = false;
+      sessao.nulo = false;
+      sessao.senadorVoto = 0;
+      
+      const cargos = cargosOrdenados();
+      if (sessao.cargoIndex >= cargos.length) {
+        estado.votos.push(...sessao.votosSessao);
+        salvarEstado();
+        sessao.finalizado = true;
+        tocarPilili();
+        renderizarTelaVoto();
+      } else {
+        renderizarTelaVoto();
+      }
+    }
+    
+    // ==================== ADMINISTRAÇÃO ====================
+    function abrirAdmin() {
+      document.getElementById('modal-admin').classList.remove('hidden');
+      document.getElementById('admin-login').classList.remove('hidden');
+      document.getElementById('admin-conteudo').classList.add('hidden');
+      document.getElementById('senha-admin').value = '';
+      setTimeout(() => document.getElementById('senha-admin').focus(), 100);
+    }
+    
+    function fecharAdmin() {
+      document.getElementById('modal-admin').classList.add('hidden');
+    }
+    
+    function verificarSenha() {
+      const senha = document.getElementById('senha-admin').value;
+      if (senha === (estado.config?.senha || SENHA_PADRAO)) {
+        document.getElementById('admin-login').classList.add('hidden');
+        document.getElementById('admin-conteudo').classList.remove('hidden');
+        mostrarAbaAdmin('cargos');
+      } else {
+        alert('Senha incorreta!');
+      }
+    }
+    
+    function mostrarAbaAdmin(aba) {
+      ['cargos', 'candidatos', 'config'].forEach(a => {
+        const el = document.getElementById('aba-' + a);
+        const tab = document.getElementById('tab-' + a);
+        if (el) el.classList.toggle('hidden', a !== aba);
+        if (tab) {
+          tab.classList.toggle('bg-green-800', a === aba);
+          tab.classList.toggle('bg-gray-700', a !== aba);
+        }
+      });
+      if (aba === 'cargos') renderizarCargos();
+      if (aba === 'candidatos') {
+        popularSelectCargos();
+        renderizarCandidatos();
+      }
+    }
+    
+    function renderizarCargos() {
+      const lista = document.getElementById('lista-cargos');
+      if (!lista) return;
+      const cargos = cargosOrdenados();
+      lista.innerHTML = cargos.map((c, idx) => `
+        <div class="bg-gray-800 p-3 rounded flex flex-wrap items-center gap-3">
+          <span class="text-gray-400 text-sm w-8">${c.ordem}º</span>
+          <input value="${c.nome.replace(/"/g, '&quot;')}" data-id="${c.id}" data-campo="nome" class="cargo-input bg-gray-700 text-white px-2 py-1 rounded flex-1 min-w-[140px]">
+          <label class="text-gray-400 text-xs">Dígitos:
+            <input type="number" min="1" max="6" value="${c.digitos}" data-id="${c.id}" data-campo="digitos" class="cargo-input bg-gray-700 text-white px-2 py-1 rounded w-16 ml-1">
+          </label>
+          <label class="text-gray-400 text-xs">Vagas:
+            <input type="number" min="1" max="50" value="${c.vagas}" data-id="${c.id}" data-campo="vagas" class="cargo-input bg-gray-700 text-white px-2 py-1 rounded w-16 ml-1">
+          </label>
+          <button type="button" data-id="${c.id}" data-dir="-1" class="btn-mover-cargo px-2 py-1 bg-gray-600 rounded text-xs" ${idx===0?'disabled':''}>↑</button>
+          <button type="button" data-id="${c.id}" data-dir="1" class="btn-mover-cargo px-2 py-1 bg-gray-600 rounded text-xs" ${idx===cargos.length-1?'disabled':''}>↓</button>
+          <button type="button" data-id="${c.id}" class="btn-remover-cargo px-2 py-1 bg-red-700 rounded text-xs">✕</button>
+        </div>
+      `).join('');
+      
+      // Event listeners dinâmicos
+      lista.querySelectorAll('.cargo-input').forEach(input => {
+        input.addEventListener('change', function() {
+          const id = this.dataset.id;
+          const campo = this.dataset.campo;
+          let valor = this.value;
+          if (campo === 'digitos' || campo === 'vagas') valor = parseInt(valor) || 1;
+          atualizarCargo(id, campo, valor);
+        });
+      });
+      lista.querySelectorAll('.btn-mover-cargo').forEach(btn => {
+        btn.addEventListener('click', function() {
+          moverCargo(this.dataset.id, parseInt(this.dataset.dir));
+        });
+      });
+      lista.querySelectorAll('.btn-remover-cargo').forEach(btn => {
+        btn.addEventListener('click', function() {
+          removerCargo(this.dataset.id);
+        });
+      });
+    }
+    
+    function atualizarCargo(id, campo, valor) {
+      const c = estado.cargos.find(x => x.id === id);
+      if (c) {
+        c[campo] = valor;
+        salvarEstado();
+      }
+    }
+    
+    function moverCargo(id, dir) {
+      const cargos = cargosOrdenados();
+      const idx = cargos.findIndex(c => c.id === id);
+      const novoIdx = idx + dir;
+      if (novoIdx < 0 || novoIdx >= cargos.length) return;
+      const temp = cargos[idx].ordem;
+      cargos[idx].ordem = cargos[novoIdx].ordem;
+      cargos[novoIdx].ordem = temp;
+      salvarEstado();
+      renderizarCargos();
+    }
+    
+    function removerCargo(id) {
+      if (!confirm('Remover este cargo? Candidatos vinculados permanecerão, mas não serão votados.')) return;
+      estado.cargos = estado.cargos.filter(c => c.id !== id);
+      salvarEstado();
+      renderizarCargos();
+    }
+    
+    function adicionarCargo() {
+      const nome = prompt('Nome do cargo:');
+      if (!nome) return;
+      const digitos = parseInt(prompt('Número de dígitos:', '2')) || 2;
+      const vagas = parseInt(prompt('Número de vagas:', '1')) || 1;
+      const maxOrdem = Math.max(0, ...estado.cargos.map(c => c.ordem));
+      estado.cargos.push({
+        id: 'cargo_' + gerarId(),
+        nome,
+        digitos,
+        vagas,
+        ordem: maxOrdem + 1
+      });
+      salvarEstado();
+      renderizarCargos();
+    }
+    
+    function popularSelectCargos() {
+      const sel = document.getElementById('cand-cargo');
+      if (!sel) return;
+      sel.innerHTML = cargosOrdenados().map(c => 
+        `<option value="${c.id}">${c.nome} (${c.digitos} dígitos)</option>`
+      ).join('');
+    }
+    
+    function salvarCandidato() {
+      const nome = document.getElementById('cand-nome').value.trim();
+      const numero = document.getElementById('cand-numero').value.trim();
+      const partido = document.getElementById('cand-partido').value.trim();
+      const cargoId = document.getElementById('cand-cargo').value;
+      const vice = document.getElementById('cand-vice').value.trim();
+      const fotoUrl = document.getElementById('cand-foto-url').value.trim();
+      const fileInput = document.getElementById('cand-foto-file');
+      
+      if (!nome || !numero || !cargoId) {
+        alert('Preencha nome, número e cargo.');
+        return;
+      }
+      
+      const cargo = estado.cargos.find(c => c.id === cargoId);
+      if (cargo && numero.length !== cargo.digitos) {
+        alert(`O número deve ter exatamente ${cargo.digitos} dígitos para este cargo.`);
+        return;
+      }
+      
+      if (estado.candidatos.some(c => c.numero === numero && c.cargoId === cargoId)) {
+        alert('Já existe candidato com este número neste cargo.');
+        return;
+      }
+      
+      const finalizar = (foto) => {
+        estado.candidatos.push({
+          id: gerarId(),
+          nome,
+          numero,
+          partido,
+          cargoId,
+          vice: vice || null,
+          foto: foto || null
+        });
+        salvarEstado();
+        document.getElementById('cand-nome').value = '';
+        document.getElementById('cand-numero').value = '';
+        document.getElementById('cand-partido').value = '';
+        document.getElementById('cand-vice').value = '';
+        document.getElementById('cand-foto-url').value = '';
+        fileInput.value = '';
+        renderizarCandidatos();
+        alert('Candidato cadastrado!');
+      };
+      
+      if (fileInput.files && fileInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = (e) => finalizar(e.target.result);
+        reader.readAsDataURL(fileInput.files[0]);
+      } else {
+        finalizar(fotoUrl || null);
+      }
+    }
+    
+    function renderizarCandidatos() {
+      const lista = document.getElementById('lista-candidatos');
+      if (!lista) return;
+      if (estado.candidatos.length === 0) {
+        lista.innerHTML = '<p class="text-gray-500 text-sm">Nenhum candidato cadastrado.</p>';
+        return;
+      }
+      lista.innerHTML = estado.candidatos.map(c => {
+        const cargo = estado.cargos.find(x => x.id === c.cargoId);
+        return `
+          <div class="bg-gray-800 p-3 rounded flex items-center gap-3">
+            ${c.foto ? `<img src="${c.foto}" class="w-12 h-14 object-cover rounded border border-green-700">` : '<div class="w-12 h-14 bg-gray-700 rounded"></div>'}
+            <div class="flex-1">
+              <p class="text-green-300">${c.numero} — ${c.nome}</p>
+              <p class="text-gray-400 text-xs">${cargo?.nome || 'Cargo removido'} • ${c.partido || '—'}</p>
+            </div>
+            <button type="button" data-id="${c.id}" class="btn-remover-cand px-2 py-1 bg-red-700 rounded text-xs">Remover</button>
+          </div>
+        `;
+      }).join('');
+      
+      lista.querySelectorAll('.btn-remover-cand').forEach(btn => {
+        btn.addEventListener('click', function() {
+          removerCandidato(this.dataset.id);
+        });
+      });
+    }
+    
+    function removerCandidato(id) {
+      if (!confirm('Remover este candidato?')) return;
+      estado.candidatos = estado.candidatos.filter(c => c.id !== id);
+      salvarEstado();
+      renderizarCandidatos();
+    }
+    
+    // ==================== RESULTADOS ====================
+    function abrirResultados() {
+      document.getElementById('modal-resultados').classList.remove('hidden');
+      renderizarResultados();
+    }
+    
+    function fecharResultados() {
+      document.getElementById('modal-resultados').classList.add('hidden');
+    }
+    
+    function renderizarResultados() {
+      const container = document.getElementById('conteudo-resultados');
+      if (!container) return;
+      const cargos = cargosOrdenados();
+      
+      if (estado.votos.length === 0) {
+        container.innerHTML = '<p class="text-gray-400">Nenhum voto registrado ainda.</p>';
+        return;
+      }
+      
+      let html = '';
+      
+      cargos.forEach(cargo => {
+        const votosCargo = estado.votos.filter(v => v.cargoId === cargo.id);
+        const validos = votosCargo.filter(v => v.tipo === 'valido');
+        const brancos = votosCargo.filter(v => v.tipo === 'branco').length;
+        const nulos = votosCargo.filter(v => v.tipo === 'nulo').length;
+        
+        const contagem = {};
+        validos.forEach(v => {
+          contagem[v.numero] = contagem[v.numero] || { nome: v.candidatoNome, votos: 0, numero: v.numero };
+          contagem[v.numero].votos++;
+        });
+        
+        const ranking = Object.values(contagem).sort((a, b) => b.votos - a.votos);
+        
+        html += `
+          <div class="bg-gray-800 rounded-lg p-4">
+            <h3 class="text-green-400 text-lg font-bold mb-2">${cargo.nome}</h3>
+            <p class="text-gray-400 text-sm mb-3">
+              Válidos: ${validos.length} | Brancos: ${brancos} | Nulos: ${nulos} | 
+              Total: ${votosCargo.length} | Vagas: ${cargo.vagas}
+            </p>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-gray-400 border-b border-gray-700">
+                    <th class="text-left py-1">Pos</th>
+                    <th class="text-left py-1">Nº</th>
+                    <th class="text-left py-1">Candidato</th>
+                    <th class="text-right py-1">Votos</th>
+                    <th class="text-right py-1">%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${ranking.map((r, i) => {
+                    const pct = validos.length ? ((r.votos / validos.length) * 100).toFixed(1) : '0.0';
+                    const eleito = i < cargo.vagas;
+                    return `
+                      <tr class="${eleito ? 'text-green-300 bg-green-900/20' : 'text-gray-300'}">
+                        <td class="py-1">${i + 1}º ${eleito ? '✓' : ''}</td>
+                        <td class="py-1 font-bold">${r.numero}</td>
+                        <td class="py-1">${r.nome}</td>
+                        <td class="text-right py-1">${r.votos}</td>
+                        <td class="text-right py-1">${pct}%</td>
+                      </tr>
+                    `;
+                  }).join('') || '<tr><td colspan="5" class="text-gray-500 py-2">Sem votos válidos</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      });
+      
+      container.innerHTML = html;
+    }
+    
+    // ==================== ZERÉSIMA ====================
+    function gerarZeresima() {
+      const cargos = cargosOrdenados();
+      const agora = new Date().toLocaleString('pt-BR');
+      
+      let html = `
+        <div class="text-center mb-4">
+          <h2 class="text-xl font-bold">JUSTIÇA ELEITORAL</h2>
+          <h3 class="font-bold">RELATÓRIO DE ZERÉSIMA</h3>
+          <p class="text-xs mt-1">Simulador Educacional</p>
+          <p class="text-xs">${agora}</p>
+        </div>
+        <hr class="my-3 border-black">
+      `;
+      
+      cargos.forEach(cargo => {
+        const candidatos = estado.candidatos.filter(c => c.cargoId === cargo.id);
+        html += `
+          <div class="mb-4">
+            <p class="font-bold">${cargo.nome.toUpperCase()} (${cargo.vagas} vaga(s))</p>
+            <p class="text-xs">Total de candidatos: ${candidatos.length}</p>
+            ${candidatos.length ? candidatos.map(c => 
+              `<p class="text-xs ml-2">${c.numero} - ${c.nome} = 0 votos</p>`
+            ).join('') : '<p class="text-xs ml-2">Nenhum candidato cadastrado</p>'}
+            <p class="text-xs mt-1">Votos nominais: 0 | Brancos: 0 | Nulos: 0</p>
+          </div>
+        `;
+      });
+      
+      html += `
+        <hr class="my-3 border-black">
+        <p class="text-center text-xs">Documento gerado pelo Simulador de Urna Eletrônica</p>
+        <p class="text-center text-xs">Este documento NÃO possui valor oficial</p>
+      `;
+      
+      document.getElementById('conteudo-zeresima').innerHTML = html;
+      document.getElementById('modal-zeresima').classList.remove('hidden');
+    }
+    
+    function fecharZeresima() {
+      document.getElementById('modal-zeresima').classList.add('hidden');
+    }
+    
+    // ==================== EXPORTAÇÃO E RESET ====================
+    function exportarDados(formato) {
+      if (formato === 'json') {
+        const blob = new Blob([JSON.stringify({
+          exportadoEm: new Date().toISOString(),
+          cargos: estado.cargos,
+          candidatos: estado.candidatos.map(c => ({...c, foto: c.foto ? '[base64 omitido]' : null})),
+          votos: estado.votos,
+          resumo: gerarResumoVotos()
+        }, null, 2)], { type: 'application/json' });
+        baixarArquivo(blob, 'urna_resultados.json');
+      } else {
+        let csv = 'Cargo,Numero,Candidato,Tipo,Timestamp\n';
+        estado.votos.forEach(v => {
+          csv += `"${v.cargoNome}","${v.numero || ''}","${v.candidatoNome || ''}","${v.tipo}","${v.timestamp}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        baixarArquivo(blob, 'urna_resultados.csv');
+      }
+    }
+    
+    function gerarResumoVotos() {
+      const resumo = {};
+      cargosOrdenados().forEach(cargo => {
+        const votos = estado.votos.filter(v => v.cargoId === cargo.id);
+        resumo[cargo.nome] = {
+          validos: votos.filter(v => v.tipo === 'valido').length,
+          brancos: votos.filter(v => v.tipo === 'branco').length,
+          nulos: votos.filter(v => v.tipo === 'nulo').length
+        };
+      });
+      return resumo;
+    }
+    
+    function baixarArquivo(blob, nome) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nome;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    
+    function confirmarLimparVotos() {
+      if (confirm('Limpar todos os votos registrados?\nOs candidatos e cargos serão mantidos.')) {
+        estado.votos = [];
+        salvarEstado();
+        alert('Votos limpos (Zerésima aplicada).');
+        if (!document.getElementById('modal-resultados').classList.contains('hidden')) {
+          renderizarResultados();
+        }
+      }
+    }
+    
+    function confirmarResetTotal() {
+      if (confirm('ATENÇÃO: Isso apagará TODOS os dados (cargos, candidatos e votos).\nDeseja continuar?')) {
+        if (confirm('Confirma o reset completo? Esta ação não pode ser desfeita.')) {
+          localStorage.removeItem('urna_eletronica_v1');
+          estado = {
+            cargos: JSON.parse(JSON.stringify(CARGOS_PADRAO)),
+            candidatos: [],
+            votos: [],
+            config: { senha: SENHA_PADRAO }
+          };
+          salvarEstado();
+          alert('Reset completo realizado.');
+          fecharAdmin();
+          iniciarNovaSessao();
+        }
+      }
+    }
+    
+    // ==================== RELÓGIO ====================
+    function atualizarRelogio() {
+      const el = document.getElementById('clock');
+      if (el) el.textContent = new Date().toLocaleTimeString('pt-BR');
+    }
+    
+    // ==================== INICIALIZAÇÃO E EVENT LISTENERS ====================
+    function setupEventListeners() {
+      // Teclado da urna
+      document.querySelectorAll('.key-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          processarTecla(this.dataset.key);
+        });
+      });
+      
+      // Teclado físico
+      document.addEventListener('keydown', (e) => {
+        const adminOpen = !document.getElementById('modal-admin').classList.contains('hidden');
+        const resOpen = !document.getElementById('modal-resultados').classList.contains('hidden');
+        const zerOpen = !document.getElementById('modal-zeresima').classList.contains('hidden');
+        if (adminOpen || resOpen || zerOpen) return;
+        
+        const key = e.key;
+        if (/^[0-9]$/.test(key)) {
+          e.preventDefault();
+          processarTecla(key);
+        } else if (key === 'Enter') {
+          e.preventDefault();
+          processarTecla('CONFIRMA');
+        } else if (key === 'Backspace' || key === 'Delete') {
+          e.preventDefault();
+          processarTecla('CORRIGE');
+        } else if (key.toLowerCase() === 'b') {
+          e.preventDefault();
+          processarTecla('BRANCO');
+        }
+      });
+      
+      // Botões principais
+      document.getElementById('btn-admin').addEventListener('click', abrirAdmin);
+      document.getElementById('btn-resultados').addEventListener('click', abrirResultados);
+      document.getElementById('btn-zeresima').addEventListener('click', gerarZeresima);
+      
+      // Modal admin
+      document.getElementById('btn-fechar-admin').addEventListener('click', fecharAdmin);
+      document.getElementById('btn-entrar-admin').addEventListener('click', verificarSenha);
+      document.getElementById('senha-admin').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') verificarSenha();
+      });
+      
+      document.getElementById('tab-cargos').addEventListener('click', () => mostrarAbaAdmin('cargos'));
+      document.getElementById('tab-candidatos').addEventListener('click', () => mostrarAbaAdmin('candidatos'));
+      document.getElementById('tab-config').addEventListener('click', () => mostrarAbaAdmin('config'));
+      
+      document.getElementById('btn-add-cargo').addEventListener('click', adicionarCargo);
+      document.getElementById('btn-salvar-candidato').addEventListener('click', salvarCandidato);
+      
+      document.getElementById('btn-export-json').addEventListener('click', () => exportarDados('json'));
+      document.getElementById('btn-export-csv').addEventListener('click', () => exportarDados('csv'));
+      document.getElementById('btn-limpar-votos').addEventListener('click', confirmarLimparVotos);
+      document.getElementById('btn-reset-total').addEventListener('click', confirmarResetTotal);
+      
+      // Modal resultados
+      document.getElementById('btn-fechar-resultados').addEventListener('click', fecharResultados);
+      
+      // Modal zerésima
+      document.getElementById('btn-fechar-zeresima').addEventListener('click', fecharZeresima);
+      document.getElementById('btn-imprimir-zeresima').addEventListener('click', () => window.print());
+      
+      // Fechar modais clicando fora
+      document.getElementById('modal-admin').addEventListener('click', function(e) {
+        if (e.target === this) fecharAdmin();
+      });
+      document.getElementById('modal-resultados').addEventListener('click', function(e) {
+        if (e.target === this) fecharResultados();
+      });
+      document.getElementById('modal-zeresima').addEventListener('click', function(e) {
+        if (e.target === this) fecharZeresima();
+      });
+    }
+    
+    // Inicialização
+    document.addEventListener('DOMContentLoaded', function() {
+      carregarEstado();
+      setupEventListeners();
+      iniciarNovaSessao();
+      atualizarRelogio();
+      setInterval(atualizarRelogio, 1000);
+      
+      // Inicializa áudio no primeiro clique
+      document.body.addEventListener('click', () => initAudio(), { once: true });
+    });
+  </script>
+</body>
+</html>
